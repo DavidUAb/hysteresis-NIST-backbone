@@ -76,8 +76,8 @@ def plot_backbone(backbone):
 
 def grid_search(backbone, backbone_x, backbone_y):
 
-    areas = np.linspace(0.0001, 0.01, num=100)
-    theta_ults = np.linspace(0.01, 1, num=100)
+    areas = np.linspace(0.0001, 0.01, num=500)
+    theta_ults = np.linspace(0.01, 1, num=500)
     mins = [float('inf'), 0, 0, 0, 0]
     i = 0
 
@@ -93,18 +93,18 @@ def grid_search(backbone, backbone_x, backbone_y):
 
             mae = calc_mae(x_values, y_values,
                            backbone_x, backbone_y)
-            if mae < mins[0]:
+            if (mae < mins[0]) & (x_values[-1] <= 0.12):
                 mins[0] = mae
                 mins[1] = area
                 mins[2] = theta_ult
                 mins[3] = x_values
                 mins[4] = y_values
-                if i % 10 == 0:
+                if i % 50 == 0:
                     ax, _ = plot_backbone(backbone)
                     ax.plot(x_values, y_values)
 
                     plt.savefig(
-                        "{}. standard_backbone vs {},{} backbone.png".format(i, area, theta_ult))
+                        "figs/{}. standard_backbone vs {},{} backbone.png".format(i, area, theta_ult))
                     plt.close()
                 i += 1
 
