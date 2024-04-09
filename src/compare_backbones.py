@@ -14,13 +14,13 @@ def main():
     file = "hysteresis.csv"
     backbone_file = "backbone.csv"
 
-    xy = np.loadtxt(file, delimiter=',', skiprows=1)
+    xy = np.loadtxt(file, delimiter=',', skiprows=2)
     predicted_backbone = np.loadtxt(backbone_file, delimiter=',', skiprows=1)
 
     """
   There are [x] repeats at each load protocol step, and y steps in total.
   """
-    lpSteps = [3]*20
+    lpSteps = [1]*2
 
     # Make the Hysteresis object
     myHys = hys.Hysteresis(xy)
@@ -76,8 +76,8 @@ def plot_backbone(backbone):
 
 def grid_search(backbone, backbone_x, backbone_y):
 
-    areas = np.linspace(0.0001, 0.01, num=500)
-    theta_ults = np.linspace(0.01, 1, num=500)
+    areas = np.linspace(0.0001, 0.01, num=250)
+    theta_ults = np.linspace(0.01, 1, num=250)
     mins = [float('inf'), 0, 0, 0, 0]
     i = 0
 
