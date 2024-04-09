@@ -8,18 +8,36 @@ import matplotlib.pyplot as plt
 import hysteresis as hys
 from sklearn.metrics import mean_absolute_error
 from get_params import get_segments, get_parms, get_x_and_y
+from get_hysteresis_data import *
 
 
 def main():
-    file = "hysteresis.csv"
     backbone_file = "backbone.csv"
 
-    xy = np.loadtxt(file, delimiter=',', skiprows=1)
     predicted_backbone = np.loadtxt(backbone_file, delimiter=',', skiprows=1)
 
+    plt.savefig("standard_backbone.png")
+
+    experimental_backbone_x = np.array(predicted_backbone)[:, 0]
+    experimental_backbone_y = np.array(predicted_backbone)[:, 1]
+
+    mins = grid_search(experimental_backbone_x, experimental_backbone_y)
+
+    ax, _ = plt.plot(experimental_backbone_x, experimental_backbone_y)
+    ax.plot(mins[3], mins[4])
+
+    plt.savefig(
+        "FINAL standard_backbone vs {} backbone.png".format(mins[1]))
+    plt.close()
+
+    print(mins[0], mins[1], mins[2])
+
+
+def get_hysteresis_backbone(M1):
+    xy = get_hysteresis(M1)
     """
-  There are [x] repeats at each load protocol step, and y steps in total.
-  """
+    There are [x] repeats at each load protocol step, and y steps in total.
+    """
     lpSteps = [3]*20
 
     # Make the Hysteresis object
@@ -29,33 +47,11 @@ def main():
     backbone = hys.getBackboneCurve(myHys, lpSteps)
 
     _, backbone_data = plot_backbone(backbone)
-    plt.savefig("standard_backbone.png")
 
     backbone_x = backbone_data.get_xdata()
     backbone_y = backbone_data.get_ydata()
 
-    predicted_backbone_x = np.array(predicted_backbone)[:, 0]
-    predicted_backbone_y = np.array(predicted_backbone)[:, 1]
-
-    mae = calc_mae(predicted_backbone_x, predicted_backbone_y,
-                   backbone_x, backbone_y)
-    print(f'Mean Absolute Error (MAE): {mae}')
-
-    ax, backbone_data = plot_backbone(backbone)
-    ax.plot(predicted_backbone_x, predicted_backbone_y)
-
-    plt.savefig("standard_backbone vs initial backbone.png")
-
-    mins = grid_search(backbone, backbone_x, backbone_y)
-
-    ax, _ = plot_backbone(backbone)
-    ax.plot(mins[3], mins[4])
-
-    plt.savefig(
-        "FINAL standard_backbone vs {},{} backbone.png".format(mins[0], mins[1]))
-    plt.close()
-
-    print(mins[0], mins[1], mins[2])
+    return backbone_x, backbone_y
 
 
 def plot_backbone(backbone):
@@ -74,39 +70,31 @@ def plot_backbone(backbone):
     return ax, backbone_data
 
 
-def grid_search(backbone, backbone_x, backbone_y):
+def grid_search(backbone_x, backbone_y):
 
-    areas = np.linspace(0.0001, 0.01, num=500)
-    theta_ults = np.linspace(0.01, 1, num=500)
-    mins = [float('inf'), 0, 0, 0, 0]
+    M1s = np.linspace(2500, 3500, num=1000)
+    mins = [float('inf'), 0, 0, 0]
     i = 0
 
-    for area in areas:
-        for theta_ult in theta_ults:
-            strain_at_yield, Qy, x_Qmax, Qmax_prime, x_Qr, Qr_prime, x_int, theta_ult = get_parms(
-                area, theta_ult)
+    for M1 in M1s:
+        x_values, y_values = get_hysteresis_backbone(M1)
 
-            list_of_segments = get_segments(
-                strain_at_yield, Qy, x_Qmax, Qmax_prime, x_Qr, Qr_prime, x_int, theta_ult)
+        mae = calc_mae(x_values, y_values,
+                       backbone_x, backbone_y)
+        if (mae < mins[0]) & (x_values[-1] <= 0.12):
+            mins[0] = mae
+            mins[1] = M1
+            mins[2] = x_values
+            mins[3] = y_values
+            if i % 50 == 0:
+                ax, _ = plot_backbone(backbone)
+                ax.plot(x_values, y_values)
+                ax.plot(backbone_x, backbone_y)
 
-            x_values, y_values = get_x_and_y(list_of_segments)
-
-            mae = calc_mae(x_values, y_values,
-                           backbone_x, backbone_y)
-            if (mae < mins[0]) & (x_values[-1] <= 0.12):
-                mins[0] = mae
-                mins[1] = area
-                mins[2] = theta_ult
-                mins[3] = x_values
-                mins[4] = y_values
-                if i % 50 == 0:
-                    ax, _ = plot_backbone(backbone)
-                    ax.plot(x_values, y_values)
-
-                    plt.savefig(
-                        "figs/{}. standard_backbone vs {},{} backbone.png".format(i, area, theta_ult))
-                    plt.close()
-                i += 1
+                plt.savefig(
+                    "figs/{}. standard_backbone vs {} backbone.png".format(i, M1))
+                plt.close()
+            i += 1
 
     return mins
 
