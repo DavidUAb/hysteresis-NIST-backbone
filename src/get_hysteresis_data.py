@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 # ------------------
 import numpy as np
 import matplotlib.pyplot as plt
-
+import hysteresis as hys
 
 strainMap = {}
 
@@ -34,10 +34,10 @@ def defineStrainHistory(peaksArray, scaleFactor, nSteps, nCycles):
 peaksArray = np.array([.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5,
                       5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10])/10
 # peaksArray=[1,10]
-scaleFactor = .1
-# scaleFactor = 0.01
-nSteps = 100
-nCycles = 3
+scaleFactor = 0.3
+# scaleFactor = 0.3
+nSteps = 60
+nCycles = 2
 strain = defineStrainHistory(peaksArray, scaleFactor, nSteps, nCycles)
 plt.plot(strain)
 strainMap['symmCycles'] = strain
@@ -69,14 +69,14 @@ def formatAx(axModel, Title, xLabel, yLabel, titleFontSize=12, otherFontSize=12,
 
 OpenSeesMaterialBaseValues = {}
 OpenSeesMaterialDefaultValues = {}
-M1 = 2772.
+M1 = 1784.2104208416836
 M2 = round(1.12*M1, 1)
 M3 = round(0.6*M1, 1)
 M4 = M3
 M5 = round(0.1*M1, 1)
 M6 = M5
 M7 = 0.01*M1
-eps1 = 0.01
+eps1 = 0.1
 eps2 = 2.*eps1
 eps3 = 4.*eps1
 eps4 = 6.*eps1
@@ -88,7 +88,7 @@ eps7 = 12.*eps1
 limitStateInput = ['-defoLimitStates', eps1, -eps1,
                    eps2, -eps2, '-forceLimitStates', M1, -M1, M2, -M2]
 positiveEnvelope = [M1, eps1, M2, eps2, M3, eps3,
-                    M4, eps4, M5, eps5, 200., eps6, 0, eps7]
+                    M4, eps4, M5, eps5, 100., eps6, 0, eps7]
 negativeEnvelope = [-M1, -eps1, -M2, -eps2, -M3, -eps3]
 
 OpenSeesMaterialBaseValues[f'HystereticSM'] = [
@@ -175,9 +175,24 @@ for thisStrainLabel in allStrainArray:
             for x, y in zip(thisStrain, stress):
                 write.writerow([x, y])
 
+        backbone_file = "SPC1.csv"
+        hysteresis_data = np.loadtxt(backbone_file, delimiter=',', skiprows=2)
+
+        # Sort the data into a xy curve
+        x = hysteresis_data[:, 1]*(1/280)
+        y = hysteresis_data[:, 0]*40
+        xy = np.column_stack([x, y])
+
+        # Make a hysteresis object
+        myHys = hys.Hysteresis(xy)
+
+        # Plot the object to see if cycles are tested properly
+        fig, ax = plt.subplots()
+        myHys.plot(label='Experiment Hysteresis')
+
         MaterialInputStr = str(MaterialInput).replace(',', ',\n')
-        line, = axEach.plot(AllStressStrain[thisKey]['strain'], AllStressStrain[thisKey]
-                            ['stress'], linewidth='1', label=MaterialInputStr, marker='')
-        formatAx(axEach, thisMaterial, 'Strain,Rotation,Curvature, or Deformation',
+        line, = ax.plot(AllStressStrain[thisKey]['strain'], AllStressStrain[thisKey]
+                        ['stress'], linewidth='1', label=MaterialInputStr, marker='', color="red")
+        formatAx(ax, thisMaterial, 'Strain,Rotation,Curvature, or Deformation',
                  'Stress,Moment,Moment, or Force', 4, 4, 'best', 'lightgrey', 2)
-        plt.savefig("Steel01_opensees_hysteresis.png")
+        plt.savefig("FINAL_Steel01_opensees_hysteresis.png")

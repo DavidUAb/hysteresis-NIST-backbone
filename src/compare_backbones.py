@@ -8,33 +8,57 @@ import matplotlib.pyplot as plt
 import hysteresis as hys
 from sklearn.metrics import mean_absolute_error
 from get_params import get_segments, get_parms, get_x_and_y
-from get_hysteresis_data import *
+from get_hysteresis_data import get_hysteresis
 
 
 def main():
-    backbone_file = "backbone.csv"
+    backbone_file = "SPC1.csv"
+    hysteresis_data = np.loadtxt(backbone_file, delimiter=',', skiprows=2)
 
-    predicted_backbone = np.loadtxt(backbone_file, delimiter=',', skiprows=1)
+    # Sort the data into a xy curve
+    x = hysteresis_data[:, 1]*(1/280)
+    y = hysteresis_data[:, 0]*100
+    xy = np.column_stack([x, y])
 
-    plt.savefig("standard_backbone.png")
+    # Make a hysteresis object
+    myHys = hys.Hysteresis(xy)
 
-    experimental_backbone_x = np.array(predicted_backbone)[:, 0]
-    experimental_backbone_y = np.array(predicted_backbone)[:, 1]
+    # Plot the object to see if cycles are tested properly
+    fig, ax = plt.subplots()
+    myHys.plot(True)
+    plt.savefig("hysteresis.png")
+    plt.close()
+
+    # count the number of repeats in each 'step' of the load protocol
+    LPsteps = [5, 5, 5, 3, 3, 3, 3]
+
+    # Make the backbone curve
+    backbone = hys.getBackboneCurve(myHys, LPsteps, returnPeaks=True)
+
+    backbone_data = backbone.plot(linestyle='-.', label='Backbone')
+
+    experimental_backbone_x = backbone_data.get_xdata()
+    experimental_backbone_y = backbone_data.get_ydata()
 
     mins = grid_search(experimental_backbone_x, experimental_backbone_y)
 
-    ax, _ = plt.plot(experimental_backbone_x, experimental_backbone_y)
-    ax.plot(mins[3], mins[4])
+    plt.plot(experimental_backbone_x, experimental_backbone_y)
+    plt.plot(mins[2], mins[3])
 
     plt.savefig(
-        "FINAL standard_backbone vs {} backbone.png".format(mins[1]))
+        "FINAL Steel {} standard_backbone vs experimental backbone.png".format(mins[4]))
     plt.close()
 
-    print(mins[0], mins[1], mins[2])
+    print("Error: ", mins[0], " M1: ", mins[1], " at i: ", mins[4])
+
+    mins[5].plot(True)
+    # myHys.plot(True)
+    plt.savefig("Experimental vs Generated Hysteresis.png")
 
 
 def get_hysteresis_backbone(M1):
-    xy = get_hysteresis(M1)
+    x, y = get_hysteresis(M1)
+    xy = np.column_stack((x, y))
     """
     There are [x] repeats at each load protocol step, and y steps in total.
     """
@@ -46,12 +70,12 @@ def get_hysteresis_backbone(M1):
     # Get the backbone
     backbone = hys.getBackboneCurve(myHys, lpSteps)
 
-    _, backbone_data = plot_backbone(backbone)
+    backbone_data = backbone.plot(label='Analysis Backbone Data', color='red')
 
     backbone_x = backbone_data.get_xdata()
     backbone_y = backbone_data.get_ydata()
 
-    return backbone_x, backbone_y
+    return backbone_x, backbone_y, myHys
 
 
 def plot_backbone(backbone):
@@ -72,29 +96,32 @@ def plot_backbone(backbone):
 
 def grid_search(backbone_x, backbone_y):
 
-    M1s = np.linspace(2500, 3500, num=1000)
-    mins = [float('inf'), 0, 0, 0]
+    M1s = np.linspace(1, 5000, num=500)
+    mins = [float('inf'), 0, 0, 0, 0, 0]
     i = 0
 
     for M1 in M1s:
-        x_values, y_values = get_hysteresis_backbone(M1)
+        x_values, y_values, hysteresis_xy = get_hysteresis_backbone(M1)
 
         mae = calc_mae(x_values, y_values,
                        backbone_x, backbone_y)
-        if (mae < mins[0]) & (x_values[-1] <= 0.12):
+        if mae < mins[0]:
             mins[0] = mae
             mins[1] = M1
             mins[2] = x_values
             mins[3] = y_values
-            if i % 50 == 0:
-                ax, _ = plot_backbone(backbone)
-                ax.plot(x_values, y_values)
-                ax.plot(backbone_x, backbone_y)
+            mins[4] = i
+            mins[5] = hysteresis_xy
 
-                plt.savefig(
-                    "figs/{}. standard_backbone vs {} backbone.png".format(i, M1))
-                plt.close()
-            i += 1
+        if i % 100 == 0:
+            print("Error: ", mins[0], "M1: ", mins[1])
+            plt.plot(x_values, y_values)
+            plt.plot(backbone_x, backbone_y)
+
+            plt.savefig(
+                "figs/Steel {}. standard_backbone vs experimental backbone.png".format(i))
+            plt.close()
+        i += 1
 
     return mins
 
